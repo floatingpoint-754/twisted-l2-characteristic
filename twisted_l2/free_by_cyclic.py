@@ -179,10 +179,11 @@ class FreeByCyclic:
             - print_latex: print the automorphism in LaTeX notation.
         """
         import random
-        if not seed:
+        if seed is None:
             import sys
             seed = random.randrange(sys.maxsize)
-        rng = random.Random(seed)
+        rng = random.Random()
+        rng.seed(seed, version=2)
         FreeByCyclic.random_automorphism.seed = seed
         
         F = FreeGroup(n)

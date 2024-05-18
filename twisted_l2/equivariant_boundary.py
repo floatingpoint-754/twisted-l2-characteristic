@@ -13,7 +13,7 @@ __all__ = [
     "gap_member",
     "ComponentObjectWrapper",
     "face_lattice_to_hap",
-    #"regina_sc_to_face_lattice",
+    #"regina_rc_to_face_lattice",
     #"verify_face_lattice",
     "regina_tri_to_face_lattice",
     "surface_face_lattice",
@@ -27,7 +27,7 @@ __all__ = [
     #"extract_all_elements",
     "boundary_operator",
     "boundary_operator_row",
-    #"isosig_RT5",
+    "isosig_RT5",
 ]
 
 gap_member = libgap.eval("function(obj, str) return obj!.(str); end;")
@@ -58,7 +58,7 @@ def face_lattice_to_hap(fl):
     FL.append([])
     return FL
 
-def regina_sc_to_face_lattice(T, hap = True):
+def regina_rc_to_face_lattice(T, hap = True):
     """
     Returns the face lattice associated to a Regina triangulation.
     
@@ -69,7 +69,7 @@ def regina_sc_to_face_lattice(T, hap = True):
         
     Conditions:
     
-        This function assumes that "T" is a simplicial complex
+        This function assumes that "T" is a regular complex
         (i.e. no simplex has repeated vertices).
         
     Returns:
@@ -98,7 +98,7 @@ def regina_sc_to_face_lattice(T, hap = True):
         return FL
 
 def verify_face_lattice(FL):
-    """Verifies that the face lattice returned by regina_sc_to_face_lattice represents a regular CW complex."""
+    """Verifies that the face lattice returned by regina_rc_to_face_lattice represents a regular CW complex."""
     for fli in FL:
         for lst in fli:
             if len(set(lst[1:])) != lst[0]:
@@ -141,7 +141,7 @@ def regina_tri_to_face_lattice(T, ideal=True, simplify = True):
     if simplify:
         T.intelligentSimplify()
     T.barycentricSubdivision()
-    return regina_sc_to_face_lattice(T)
+    return regina_rc_to_face_lattice(T)
 
 def surface_face_lattice(g, hap=True):
     """Returns the face lattice associated to a closed surface of genus g."""

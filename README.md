@@ -42,6 +42,9 @@ $ sage -n jupyterlab
 
 A browser tab will open, from which you can open the notebooks (and do your own experimentations).
 
+Some notebooks come with precomputed information about the chain complex (in the `data` directory).
+This provides consistency when non-deterministic algorithms are involved.
+
 ## Details
 
 The main methods provided by `twisted_l2` are `twisted_l2_characteristic` (alias `characteristic`) and `von_neumann_rank`.
