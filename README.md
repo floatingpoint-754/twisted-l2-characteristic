@@ -21,7 +21,7 @@ Next, install the GAP package [HAP](https://www.gap-system.org/Packages/hap.html
 $ sage -i gap_packages
 ```
 
-On some installations this fails for the same reasons, but there should be a corresponding system package such as `gap-packages`.
+On some installations this fails for similar reasons, but there should be a corresponding system package such as `gap-packages`.
 
 Finally, clone this repository in a directory of your choice:
 
@@ -71,7 +71,7 @@ G = twisted_l2.get_fundamental_group(chain_complex)
 cc = twisted_l2.get_differentials(chain_complex)
 ```
 
-You can find more information in the notebooks and the wiki; you can also access the documentation of any object by using the `?` operator in Sage and JupyterLab:
+You can find more information in the notebooks and the [wiki](../../wiki); you can also access the documentation of any object by using the `?` operator in Sage and JupyterLab:
 
 ```
 twisted_l2.characteristic?
