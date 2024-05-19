@@ -3,6 +3,7 @@ Provides the FreeByCyclic class, used to make classifying spaces for free-by-cyc
 """
 
 from sage.all import *
+from .equivariant_boundary import face_lattice_to_hap
 
 __all__ = ["FreeByCyclic"]
 
@@ -119,9 +120,13 @@ class FreeByCyclic:
         """
         Returns a face lattice for the classifying space of this free-by-cyclic group.
         """
+        if hasattr(self, "_has_FL") and self._has_FL:
+            return self.FL
+            
         self.make_verts()
         self.make_edges()
         self.make_faces()
+        self._has_FL = True
         return self.FL
         
     def _test_me(self):
@@ -221,15 +226,16 @@ class FreeByCyclic:
         
         aut = F.hom(gens)
         inv = F.hom(gens)
+        latex_strings = []
         while True:
             g = rng.choice(gl)
             if g is None:
                 break
             aut = aut*g[1]
             inv = g[1]*inv
-            if print_latex:
-                print(g[0], end=" ")
+            latex_strings.append(g[0])
+            
         if print_latex:
-            print()
+            print(" \\cdot ".join(latex_strings))
         
         return F, F.hom([aut(x) for x in gens]), F.hom([inv(x) for x in gens])

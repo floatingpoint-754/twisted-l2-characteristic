@@ -193,8 +193,11 @@ def get_differentials(ch):
     prop = ch.properties
     dim = 0
     for k,v in prop:
-        if k == "dimension":
+        if k == "dimension": # for complexes
             dim = v.sage()
+            break
+        if k == "length": # for resolutions
+            dim = v.sage() - 1
             break
             
     cc = [boundary_operator(ch, i, G) for i in range(1, dim+1)]

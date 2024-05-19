@@ -198,6 +198,6 @@ def draw_seminorm(G, cc, n, exps, rad = 1):
         x = i - nr // 2
         for j in range(nc):
             y = -(j - nc // 2)
-            M[i,j] = twisted_l2_characteristic(G, [y,x], cc, n, exps, free=free)
+            M[i,j] = twisted_l2_characteristic(G, [y,x], cc, n, exps)
     
     return M
