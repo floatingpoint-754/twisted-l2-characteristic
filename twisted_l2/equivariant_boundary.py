@@ -309,25 +309,6 @@ isosig_RT5 = (
     "+gobkeya+gWgcaycmdaaob+baa6boe8dgaGaod2gecieiaqcMe0cYaGhqecdsiMh"
     "Wi2gUf2c"
 )
-# >>> from tessellation import get_link
-# >>> f = [get_link(tri.vertex(i)) for i in range(tri.countVertices())]
-# >>> f
-# [<regina.Triangulation4: Closed orientable 4-D triangulation, f = ( 32 416 1344 1600 640 )>, <regina.Triangulation4: Closed orientable 4-D triangulation, f = ( 42 200 400 400 160 )>, <regina.Triangulation4: Closed orientable 4-D triangulation, f = ( 26 120 240 240 96 )>, <regina.Triangulation4: Closed orientable 4-D triangulation, f = ( 8 104 336 400 160 )>, <regina.Triangulation4: Closed orientable 4-D triangulation, f = ( 26 120 240 240 96 )>]
-# >>> g = [fi.fundamentalGroup() for fi in f]
-# >>> g
-# [<regina.GroupPresentation: < a b | a^-2 b a^2 b^-1, a b a b^-1 a^-1 b^-2 a^2 b^-1 a b^-1 >>, <regina.GroupPresentation: < >>, <regina.GroupPresentation: < >>, <regina.GroupPresentation: < a b c | a b^-1 a^-1 b, b c^-1 b^-1 c, a b a c^-1 a^2 b^-1 c, a^-1 c b^-2 c a b^-2 c^2 >>, <regina.GroupPresentation: < >>]
-# >>> [gi.abelianisation() for gi in g]
-# [<regina.AbelianGroup: Z + Z_4>, <regina.AbelianGroup: 0>, <regina.AbelianGroup: 0>, <regina.AbelianGroup: Z + 2 Z_4>, <regina.AbelianGroup: 0>]
-# ====================================
-# cusps correspond to vertices 0 and 3
-# to make the regular CW complex:
-#     - do a barycentric subdivision *
-#     - convert to face lattice / hap format
-#     - delete the vertices corresponding to 0 and 3 and all cells containing them
-#     - reorder everything
-# ====================================
-# vertices 0 and 3 correspond to 0 and 55 in the subdivided triangulation
-#
 
 
 
