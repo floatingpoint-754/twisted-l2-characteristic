@@ -604,7 +604,7 @@ class RegularCWComplex:
             s.clear()
     
     def barycentric_subdivision(self):
-        """Returns a list of tuples defining a simplicial complex homeomorphic to self."""
+        """Returns a list of tuples defining a regular CW complex homeomorphic to self."""
         _id_start = [0]
         for d in range(1,self.dimension()+1):
             _id_start.append(_id_start[-1] + self.ncells(d-1))

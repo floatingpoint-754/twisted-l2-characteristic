@@ -170,25 +170,57 @@ def surface_face_lattice(g, hap=True):
     return [fl0, fl1, fl2, []]
     
 def cw_complex(fl):
+    """Returns a GAP regular CW complex constructed from the face lattice fl."""
     return libgap.RegularCWComplex(fl)
 
 def simplify_cw(cw):
+    """Returns a simplified copy of the GAP regular CW complex cw"""
     return libgap.SimplifiedRegularCWComplex(cw)
     
 def equivariant_cc(cw, gap=False):
+    """
+    Returns the chain complex of the universal cover of cw.
+    
+    Arguments:
+        - gap: if True, returns a GAP object.
+               if False, wraps the return value in a ComponentObjectWrapper.
+    """
     cc = libgap.ChainComplexOfUniversalCover(cw)
     return cc if gap else ComponentObjectWrapper(cc)
     
 def face_lattice_to_cc(fl, simplify=True, gap=False):
+    """
+    Converts a face lattice to an equivariant chain complex.
+    
+    Arguments:
+        - fl: a face lattice.
+        - simplify: whether to simplify the CW complex.
+        - gap: if True, returns a GAP object.
+               if False, wraps the return value in a ComponentObjectWrapper.
+    """
     cw = cw_complex(fl)
     if simplify:
         cw = simplify_cw(cw)
     return equivariant_cc(cw, gap)
     
 def get_fundamental_group(ch):
+    """
+    Extracts the fundamental group from an equivariant chain complex ch.
+    Returns a Sage finitely presented group.
+    
+    Arguments:
+        - ch: a ComponentObjectWrapper for a GAP chain complex.
+    """
     return wrap_FpGroup(ch.group)
     
 def get_differentials(ch):
+    """
+    Extracts the differentials from an equivariant chain complex.
+    Returns a list of matrices.
+    
+    Arguments:
+        - ch: a ComponentObjectWrapper for a GAP chain complex.
+    """
     G = get_fundamental_group(ch)
     prop = ch.properties
     dim = 0
