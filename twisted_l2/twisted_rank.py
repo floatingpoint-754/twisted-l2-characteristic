@@ -3,7 +3,6 @@ Defines functions computing the twisted rank of matrices with coefficients in a 
 """
 
 from sage.all import *
-from sage.groups.group import is_Group
 from .utils import tietze_to_syllables, Ints, gap_ZZ_to_int, rational_n
 from .fga_rank import finite_group_algebra_rank
 import functools
@@ -52,7 +51,7 @@ def von_neumann_rank(G, M, exps, LogObj = lambda: None):
         The matrix M is enlarged by a factor possibly exponential in p and c.
     """
     
-    if not is_Group(G):
+    if G not in Groups():
         raise ValueError("G must be a group")
     
     
@@ -62,6 +61,9 @@ def von_neumann_rank(G, M, exps, LogObj = lambda: None):
     
     k = M.nrows()
     h = M.ncols()
+
+    if k == 0 or h == 0:
+        return Integer(0)
     
     # Convert to IndexedFreeGroup, which is faster
     if not isinstance(Fb, IndexedFreeGroup):
@@ -147,25 +149,25 @@ def von_neumann_rank(G, M, exps, LogObj = lambda: None):
         
     #Log(INFO, f"Rank: {rational_n(rnk)}")
     return rnk
-    
-def determinant_degree(G, phi, lift, M, n, exps, LogObj = lambda: None):
+
+def matrix_expansion(G, phi, lift, M, n, LogObj = lambda: None):
     """
-    Computes the degree of the Dieudonné determinant of a square matrix with coefficients in the group ring Q[G].
-    
+    Expands a matrix with coefficients in Q[G], according to Oki's matrix expansion algorithm (arXiv:1907.04512, 2019).
+
     Arguments:
-    
+
         - G: finitely presented group
         - phi: surjective morphism G --> Z (can be given as a list of integers of length G.ngens())
-        - M: square matrix over Q[G] (given as a matrix over the free group)
+        - M: matrix over Q[G] (given as a matrix over the free group)
         - n: upper bound for matrix expansion
-        - exps: nilpotency class list for EpimorphismPGroup approximation
-    
+        - LogObj: an object provided so that this method can save data as members
+
     Complexity:
-    
-        The matrix M is enlarged by a factor linear in n and possibly exponential in p and c.
+
+        Polynomial in n.
     """
-    
-    if not is_Group(G):
+
+    if G not in Groups():
         raise ValueError("G must be a group")
     if hasattr(phi, "parent") and phi.parent() == Hom(G, Ints):
         phi = [gap_ZZ_to_int(phi(g)) for g in G.gens()]
@@ -173,7 +175,97 @@ def determinant_degree(G, phi, lift, M, n, exps, LogObj = lambda: None):
         raise ValueError("phi must be a morphism G --> Z")
     if abs(gcd(phi)) != 1:
         raise ValueError("phi must be surjective")
-        
+
+    x = lift
+    B = M.base_ring()
+    F = B.group()
+    from sage.groups.indexed_free_group import IndexedFreeGroup
+    if not isinstance(F, IndexedFreeGroup):
+        raise ValueError(f"The base group of M must be an IndexedFreeGroup (got {F})")
+
+    M = copy(M)
+    k, h = M.nrows(), M.ncols()
+
+    # First, we multiply the rows on the left by adequate multiples of x,
+    # such that all of M's entries have positive valuation
+
+    def val_F(f):
+        return sum((s*phi[j] for j,s in f.to_word_list()), 0)
+
+    def valmin(y):
+        """Computes the order valuation of a polynomial."""
+        return min((val_F(f) for f,q in y), default=0)
+
+    minrows = [min((valmin(M[i,j]) for j in range(h)), default=0) for i in range(k)]
+    bias = sum(minrows)
+    Log(DEBUG, f"Minimum exponent of each row: {minrows}, total: {bias}")
+
+    for i in range(k):
+        for j in range(h):
+            M[i,j] = B.monomial(x**(-minrows[i]))*M[i,j]
+
+
+    def polynomial_degree(y):
+        return max((val_F(f) for f,q in y), default=0)
+
+    max_degree = max((polynomial_degree(entry) for entry in M.list()), default=0)
+    if k != h:
+        mu = n
+        Log(INFO, f"Maximum valuation of entries = {max_degree}, expanding by {mu}")
+    else:
+        mu = min(n, max_degree*k)
+        Log(INFO, f"Maximum valuation of entries = {max_degree}, should expand matrix by {max_degree*k}, expanding by {mu} instead")
+
+    if mu == 0:
+        Log(INFO, "Valuation bound: 0 (skipping this...)")
+        return matrix(B, 0, 0), bias
+
+    Ax = matrix(B, mu*k, mu*h)
+
+    ProgressBar(DEBUG, PB_START)
+    for i in range(k):
+        for j in range(h):
+            l = [B.monomial(x**s) * M[i,j] for s in range(mu)]
+            for s in range(mu):
+                for co, q in l[s]:
+                    H = val_F(co)
+                    if H in range(mu):
+                        Ax.add_to_entry(i+k*s, j+h*H, q * B.monomial(co * x**(-H)))
+
+            ProgressBar(DEBUG, (i*h+j)/(k*h))
+
+    ProgressBar(DEBUG, PB_STOP)
+    Log(DEBUG, "expanded matrix done")
+    return Ax, bias
+
+
+def determinant_degree(G, phi, lift, M, n, exps, LogObj = lambda: None):
+    """
+    Computes the degree of the Dieudonné determinant of a self-adjoint square matrix with coefficients in the group ring Q[G].
+    
+    Arguments:
+    
+        - G: finitely presented group
+        - phi: surjective morphism G --> Z (can be given as a list of integers of length G.ngens())
+        - M: self-adjoint square matrix over Q[G] (given as a matrix over the free group)
+        - n: upper bound for matrix expansion
+        - exps: nilpotency class list for EpimorphismPGroup approximation
+        - LogObj: an object provided so that this method can save data as members
+
+    Complexity:
+    
+        The matrix M is enlarged by a factor linear in n and possibly exponential in p and c.
+    """
+    
+    if G not in Groups():
+        raise ValueError("G must be a group")
+    if hasattr(phi, "parent") and phi.parent() == Hom(G, Ints):
+        phi = [gap_ZZ_to_int(phi(g)) for g in G.gens()]
+    elif not isinstance(phi, list) and not isinstance(phi, tuple):
+        raise ValueError("phi must be a morphism G --> Z")
+    if abs(gcd(phi)) != 1:
+        raise ValueError("phi must be surjective")
+
     x = lift
     LogObj.lift = x
     Log(INFO, f"Lift: {x}")
@@ -183,62 +275,147 @@ def determinant_degree(G, phi, lift, M, n, exps, LogObj = lambda: None):
     from sage.groups.indexed_free_group import IndexedFreeGroup
     if not isinstance(F, IndexedFreeGroup):
         raise ValueError(f"The base group of M must be an IndexedFreeGroup (got {F})")
-    
+
     k = M.nrows()
     
-    def val_F(f):
-        return sum((s*phi[j] for j,s in f.to_word_list()), 0)
-    
-    # Now we need to find dim_D(K) coker(M), that is deg_K Det_D(G)(M)
-    # We use Taihei Oki's matrix expansion algorithm (arXiv:1907.04512, 2019)
-    # First, we multiply the rows on the left by adequate multiples of x,
-    # such that all of M's entries have positive valuation
-    
-    valmin = lambda y: min((val_F(f) for f,q in y), default=0)
-    minrows = [min((valmin(M[i,j]) for j in range(k)), default=0) for i in range(k)]
-    Log(DEBUG, f"Minimum exponent of each row: {minrows}, total: {sum(minrows)}")
-    
-    for i in range(k):
-        for j in range(k):
-            M[i,j] = B.monomial(x**(-minrows[i]))*M[i,j]
-                
-    valmax = lambda y : max((val_F(f) for f,q in y), default=0)
-    
-    maxval = max((max((valmax(M[i,j]) for j in range(k)), default=0) for i in range(k)), default=0)
-    mu = min(n, maxval*k)
-    
-    Log(INFO, f"Maximum valuation of entries = {maxval}, should expand matrix by {maxval*k}, expanding by {mu} instead")
-    if mu == 0:
-        Log(INFO, "Valuation: 0 (skipping this...)")
-        return sum(minrows)*-2
-    
-    Ax = matrix(B, mu*k, mu*k)
-    
-    ProgressBar(DEBUG, PB_START)
-    for i in range(k):
-        for j in range(k):
-            l = [B.monomial(x**s) * M[i,j] for s in range(mu)]
-            for s in range(mu):
-                for h, q in l[s]:
-                    H = val_F(h)
-                    if H in range(mu):
-                        Ax.add_to_entry(i+k*s, j+k*H, q * B.monomial(h * x**(-H)))
-            
-            ProgressBar(DEBUG, (i*k+j)/(k*k))
-    
-    ProgressBar(DEBUG, PB_STOP)
-    Log(DEBUG, "expanded matrix done")
-    
+    Ax, bias = matrix_expansion(G, phi, lift, M, n, LogObj)
+
     if opt.ASK_INPUT and input("Keep a copy of the expanded matrix? "):
         LogObj.expanded_matrix = copy(Ax)
-        
-        
+
     rnk = von_neumann_rank(G, Ax, exps, LogObj)
-    valn = mu*k - rnk
+    valn = Ax.nrows() - rnk
+
     Log(INFO, f"Valuation: {rational_n(valn)}")
-    
     LogObj.valuation = valn
     
-    deg = (valn + sum(minrows))*-2
+    deg = (valn + bias) * -2
     Log(INFO, f"Degree: {rational_n(deg)}")
     return deg
+
+def determinant_degree_asymmetric(G, phi, lift, M, n, exps, LogObj = lambda: None):
+    """
+    Computes the degree of the Dieudonné determinant of a general square matrix with coefficients in the group ring Q[G].
+
+    Arguments:
+
+        - G: finitely presented group
+        - phi: surjective morphism G --> Z (can be given as a list of integers of length G.ngens())
+        - M: square matrix over Q[G] (given as a matrix over the free group)
+        - n: upper bound for matrix expansion
+        - exps: nilpotency class list for EpimorphismPGroup approximation
+        - LogObj: an object provided so that this method can save data as members
+
+    Complexity:
+
+        The matrix M is enlarged by a factor linear in n and possibly exponential in p and c.
+    """
+
+    if G not in Groups():
+        raise ValueError("G must be a group")
+    if hasattr(phi, "parent") and phi.parent() == Hom(G, Ints):
+        phi = [gap_ZZ_to_int(phi(g)) for g in G.gens()]
+    elif not isinstance(phi, list) and not isinstance(phi, tuple):
+        raise ValueError("phi must be a morphism G --> Z")
+    if abs(gcd(phi)) != 1:
+        raise ValueError("phi must be surjective")
+
+    x = lift
+    LogObj.lift = x
+    Log(INFO, f"Lift: {x}")
+    minus_phi = [-z for z in phi]
+
+    B = M.base_ring()
+    F = B.group()
+    from sage.groups.indexed_free_group import IndexedFreeGroup
+    if not isinstance(F, IndexedFreeGroup):
+        raise ValueError(f"The base group of M must be an IndexedFreeGroup (got {F})")
+
+    k = M.nrows()
+
+    A0, bias0 = matrix_expansion(G, phi, lift, M, n, LogObj)
+    A1, bias1 = matrix_expansion(G, minus_phi, lift**-1, M, n, LogObj)
+
+    if opt.ASK_INPUT and input("Keep a copy of the expanded matrices? "):
+        LogObj.expanded_matrix0 = copy(A0)
+        LogObj.expanded_matrix1 = copy(A1)
+
+    val0 = A0.nrows() - von_neumann_rank(G, A0, exps, LogObj)
+    val1 = A1.nrows() - von_neumann_rank(G, A1, exps, LogObj)
+
+    Log(INFO, f"Valuations: {rational_n(val0)}, {rational_n(val1)}")
+    Log(INFO, f"Biases: {rational_n(bias0)}, {rational_n(bias1)}")
+    LogObj.valuation = (val0, val1)
+
+    deg = - val0 - bias0 - val1 - bias1
+    Log(INFO, f"Degree: {rational_n(deg)}")
+    return deg
+
+def determinant_degree_minors(G, phi, lift, M, k, n, exps, LogObj = lambda: None):
+    """
+    Returns a list whose i-th entry is the highest degree of the Dieudonné determinant
+    of a i x i minor of M, a matrix with coefficients in the group ring Q[G], up to i = k.
+
+    The output is not meaningful when i exceeds the rank of M over D(G).
+
+    Arguments:
+
+        - G: finitely presented group
+        - phi: surjective morphism G --> Z (can be given as a list of integers of length G.ngens())
+        - M: matrix over Q[G] (given as a matrix over the free group)
+        - k: maximum size of minor
+        - n: upper bound for matrix expansion
+        - exps: nilpotency class list for EpimorphismPGroup approximation
+        - LogObj: an object provided so that this method can save data as members
+
+    Complexity:
+
+        The method calls `determinant_degree_asymmetric` O(k * M.nrows() * M.ncols()) times.
+    """
+
+    if G not in Groups():
+        raise ValueError("G must be a group")
+    if hasattr(phi, "parent") and phi.parent() == Hom(G, Ints):
+        phi = [gap_ZZ_to_int(phi(g)) for g in G.gens()]
+    elif not isinstance(phi, list) and not isinstance(phi, tuple):
+        raise ValueError("phi must be a morphism G --> Z")
+    if abs(gcd(phi)) != 1:
+        raise ValueError("phi must be surjective")
+
+    x = lift
+    LogObj.lift = x
+    Log(INFO, f"Lift: {x}")
+
+    B = M.base_ring()
+    F = B.group()
+    from sage.groups.indexed_free_group import IndexedFreeGroup
+    if not isinstance(F, IndexedFreeGroup):
+        raise ValueError(f"The base group of M must be an IndexedFreeGroup (got {F})")
+
+    nr, nc = M.nrows(), M.ncols()
+
+    I = []
+    Ic = set(range(nr))
+    J = []
+    Jc = set(range(nc))
+
+    degrees = [0]
+    best_addition = (-1,-1)
+    best_degree = None
+
+    for r in range(k):
+        for i in Ic:
+            for j in Jc:
+                Min = M.matrix_from_rows_and_columns(I + [i], J + [j])
+                w = determinant_degree_asymmetric(G, phi, lift, Min, n, exps, LogObj)
+                if best_degree is None or w > best_degree:
+                    best_degree = w
+                    best_addition = (i,j)
+        I.append(i)
+        J.append(j)
+        Ic.remove(i)
+        Jc.remove(j)
+        Log(INFO, f"Current best minors: {I} (rows), {J} (columns)")
+        degrees.append(w)
+    LogObj.best_minors = (I,J)
+    return degrees

@@ -1,5 +1,4 @@
 from sage.all import *
-from sage.groups.group import is_Group
 import itertools
 from .configs import FGARankOptions as opt
 from .logger import Log, SILENT, INFO, DEBUG
@@ -115,7 +114,7 @@ def finite_group_algebra_rank(L, M):
         - L: finite group.
         - M: matrix over Q[L].
     """
-    if not (is_Group(L) or L.is_finite()):
+    if not (L in Groups() or L.is_finite()):
         raise ValueError("L must be a finite group")
     A = L.algebra(QQ)
     if type(M) != sage.matrix.matrix_generic_dense.Matrix_generic_dense or M.base_ring() != A:

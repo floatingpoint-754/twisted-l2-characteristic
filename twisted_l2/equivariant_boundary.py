@@ -4,7 +4,6 @@ Provides various utilities for the construction of Z[G]-chain complexes.
 
 from sage.all import *
 from random import randrange
-from sage.groups.finitely_presented import wrap_FpGroup
 import regina
 from .utils import to_indexed_free_group, tietze_to_syllables
 from .logger import Log, SILENT, INFO, DEBUG
@@ -211,7 +210,7 @@ def get_fundamental_group(ch):
     Arguments:
         - ch: a ComponentObjectWrapper for a GAP chain complex.
     """
-    return wrap_FpGroup(ch.group)
+    return ch.group.sage()
     
 def get_differentials(ch):
     """
