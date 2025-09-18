@@ -16,7 +16,7 @@ __all__ = [
     "twisted_l2_betti_number",
     "betti_number",
     "twisted_l2_betti_number_kth",
-    "betti_number_kth"
+    "betti_number_kth",
     "get_twisted_l2_logs",
     "draw_seminorm"
 ]
