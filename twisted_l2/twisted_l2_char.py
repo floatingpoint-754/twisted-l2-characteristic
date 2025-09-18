@@ -178,6 +178,7 @@ def get_twisted_l2_logs():
 
 def twisted_l2_betti_number(G, v, cc, k, n, exps):
     """
+    [WORK IN PROGRESS]
     Computes the i-th twisted L^2-Betti number of a chain complex with coefficients in the group ring Q[G].
 
     Arguments:
@@ -195,13 +196,14 @@ def twisted_l2_betti_number(G, v, cc, k, n, exps):
 
         Polynomial in the size of cc[i], polynomial in n, and possibly exponential in p and c.
     """
+
     if k >= len(cc) or k < 0:
-        Log(MINIMAL, f"b_{k}          : 0")
+        Log(MINIMAL, f"b_{k:<12} : 0")
         return 0
 
     fac = gcd(v)
     if fac == 0:
-        Log(MINIMAL, f"b_{k}          : 0")
+        Log(MINIMAL, f"b_{k:<12} : 0")
         return 0
 
     phi = make_phi_from_coordinates(G, [vi/fac for vi in v]) # make a primitive phi
@@ -227,18 +229,16 @@ def twisted_l2_betti_number(G, v, cc, k, n, exps):
     lift = F(tietze_to_syllables(x.Tietze()))
 
     rk = sum(cc[j].ncols() * (-1)**(k-j) for j in range(k+1))
-    Log(MINIMAL, f"Rank : {rk}")
+    Log(MINIMAL, f"Rank           : {rk}")
 
     logobj = LogObject()
-    minors = trk.determinant_degree_minors(G, phi, lift, cc[k], rk, n, exps, LogObj = logobj)
+    result = trk.dim_torsion_coker(G, phi, lift, cc[k], rk, n, exps, LogObj = logobj)
+    twisted_l2_betti_number.log = logobj
 
-    Log(MINIMAL, f"Best minors    : {logobj.best_minors[0]} (rows), {logobj.best_minors[1]} (columns)")
     Log(MINIMAL, f"Valuation      : {rational_n(logobj.valuation)}")
     Log(MINIMAL, f"Quotient sizes : {logobj.Lsize}")
-    Log(INFO,    f"Degrees        : {minors}")
 
-    result = minors[-1]
-    Log(MINIMAL, f"b_{k}          : {rational_n(result)}")
+    Log(MINIMAL, f"b_{k:<12} : {rational_n(result)}")
     return result
 
 betti_number = twisted_l2_betti_number

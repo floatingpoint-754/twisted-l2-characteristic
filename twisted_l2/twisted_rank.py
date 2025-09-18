@@ -150,7 +150,7 @@ def von_neumann_rank(G, M, exps, LogObj = lambda: None):
     #Log(INFO, f"Rank: {rational_n(rnk)}")
     return rnk
 
-def matrix_expansion(G, phi, lift, M, n, LogObj = lambda: None):
+def matrix_expansion(G, phi, lift, M, n, LogObj = lambda: None, uniform_bias = False):
     """
     Expands a matrix with coefficients in Q[G], according to Oki's matrix expansion algorithm (arXiv:1907.04512, 2019).
 
@@ -158,9 +158,16 @@ def matrix_expansion(G, phi, lift, M, n, LogObj = lambda: None):
 
         - G: finitely presented group
         - phi: surjective morphism G --> Z (can be given as a list of integers of length G.ngens())
+        - lift: an element of the free group of G such that phi(lift) == 1
         - M: matrix over Q[G] (given as a matrix over the free group)
         - n: upper bound for matrix expansion
         - LogObj: an object provided so that this method can save data as members
+        - uniform_bias: multiply each row by the same power of lift
+
+    Returns:
+        A tuple (Mx, bias), where Mx is the expanded matrix and bias is either
+            - the sum of all shifts applied to each row (if not uniform_bias)
+            - the shift applied to each row (if uniform_bias)
 
     Complexity:
 
@@ -197,8 +204,14 @@ def matrix_expansion(G, phi, lift, M, n, LogObj = lambda: None):
         return min((val_F(f) for f,q in y), default=0)
 
     minrows = [min((valmin(M[i,j]) for j in range(h)), default=0) for i in range(k)]
-    bias = sum(minrows)
-    Log(DEBUG, f"Minimum exponent of each row: {minrows}, total: {bias}")
+    if not uniform_bias:
+        bias = sum(minrows)
+        Log(DEBUG, f"Minimum exponent of each row: {minrows}, total: {bias}")
+    else:
+        bias = min(minrows)
+        minrows = [bias] * k
+        Log(DEBUG, f"Multiplying each row by u^{-bias}")
+
 
     for i in range(k):
         for j in range(h):
@@ -237,7 +250,6 @@ def matrix_expansion(G, phi, lift, M, n, LogObj = lambda: None):
     ProgressBar(DEBUG, PB_STOP)
     Log(DEBUG, "expanded matrix done")
     return Ax, bias
-
 
 def determinant_degree(G, phi, lift, M, n, exps, LogObj = lambda: None):
     """
@@ -333,8 +345,8 @@ def determinant_degree_asymmetric(G, phi, lift, M, n, exps, LogObj = lambda: Non
 
     k = M.nrows()
 
-    A0, bias0 = matrix_expansion(G, phi, lift, M, n, LogObj)
-    A1, bias1 = matrix_expansion(G, minus_phi, lift**-1, M, n, LogObj)
+    A0, bias0 = matrix_expansion(G, phi, lift, M, n, LogObj, uniform_bias=True)
+    A1, bias1 = matrix_expansion(G, minus_phi, lift**-1, M, n, LogObj, uniform_bias=True)
 
     if opt.ASK_INPUT and input("Keep a copy of the expanded matrices? "):
         LogObj.expanded_matrix0 = copy(A0)
@@ -351,26 +363,27 @@ def determinant_degree_asymmetric(G, phi, lift, M, n, exps, LogObj = lambda: Non
     Log(INFO, f"Degree: {rational_n(deg)}")
     return deg
 
-def determinant_degree_minors(G, phi, lift, M, k, n, exps, LogObj = lambda: None):
+def dim_torsion_coker(G, phi, lift, M, rk, n, exps, LogObj = lambda: None):
     """
-    Returns a list whose i-th entry is the highest degree of the Dieudonné determinant
-    of a i x i minor of M, a matrix with coefficients in the group ring Q[G], up to i = k.
+    Given a matrix M with coefficients in the group ring Q[G],
+    returns the dimension over D(K) of the torsion D(K)[u, u^-1]-module of coker(M).
+    This is equivalent to the sum of the degrees of nonzero entries in the Jacobson normal form of M,
+    and generalizes the method `determinant_degree_asymmetric` to singular matrices.
 
-    The output is not meaningful when i exceeds the rank of M over D(G).
+    Note: using `determinant_degree_asymmetric` is still more efficient for nonsingular square matrices,
+    as that method allows every row to be multiplied by a different power of the lift.
+
+    The output is not meaningful when k is not the rank of M over D(G).
 
     Arguments:
 
         - G: finitely presented group
         - phi: surjective morphism G --> Z (can be given as a list of integers of length G.ngens())
         - M: matrix over Q[G] (given as a matrix over the free group)
-        - k: maximum size of minor
+        - rk: rank of M over D(G)
         - n: upper bound for matrix expansion
         - exps: nilpotency class list for EpimorphismPGroup approximation
         - LogObj: an object provided so that this method can save data as members
-
-    Complexity:
-
-        The method calls `determinant_degree_asymmetric` O(k * M.nrows() * M.ncols()) times.
     """
 
     if G not in Groups():
@@ -385,6 +398,7 @@ def determinant_degree_minors(G, phi, lift, M, k, n, exps, LogObj = lambda: None
     x = lift
     LogObj.lift = x
     Log(INFO, f"Lift: {x}")
+    minus_phi = [-z for z in phi]
 
     B = M.base_ring()
     F = B.group()
@@ -392,30 +406,21 @@ def determinant_degree_minors(G, phi, lift, M, k, n, exps, LogObj = lambda: None
     if not isinstance(F, IndexedFreeGroup):
         raise ValueError(f"The base group of M must be an IndexedFreeGroup (got {F})")
 
-    nr, nc = M.nrows(), M.ncols()
+    k = M.nrows()
 
-    I = []
-    Ic = set(range(nr))
-    J = []
-    Jc = set(range(nc))
+    A0, bias0 = matrix_expansion(G, phi, lift, M, n, LogObj, uniform_bias=True)
+    A1, bias1 = matrix_expansion(G, minus_phi, lift**-1, M, n, LogObj, uniform_bias=True)
 
-    degrees = [0]
-    best_addition = (-1,-1)
-    best_degree = None
+    if opt.ASK_INPUT and input("Keep a copy of the expanded matrices? "):
+        LogObj.expanded_matrix0 = copy(A0)
+        LogObj.expanded_matrix1 = copy(A1)
 
-    for r in range(k):
-        for i in Ic:
-            for j in Jc:
-                Min = M.matrix_from_rows_and_columns(I + [i], J + [j])
-                w = determinant_degree_asymmetric(G, phi, lift, Min, n, exps, LogObj)
-                if best_degree is None or w > best_degree:
-                    best_degree = w
-                    best_addition = (i,j)
-        I.append(i)
-        J.append(j)
-        Ic.remove(i)
-        Jc.remove(j)
-        Log(INFO, f"Current best minors: {I} (rows), {J} (columns)")
-        degrees.append(w)
-    LogObj.best_minors = (I,J)
-    return degrees
+    ord0 = rk * (n + bias0) - von_neumann_rank(G, A0, exps, LogObj)
+    ord1 = rk * (n + bias1) - von_neumann_rank(G, A1, exps, LogObj)
+
+    Log(INFO, f"Valuations: {rational_n(ord0)}, {rational_n(ord1)}")
+    LogObj.valuation = (ord0, ord1)
+
+    deg = -(ord0 + ord1)
+    Log(INFO, f"Degree: {rational_n(deg)}")
+    return deg
